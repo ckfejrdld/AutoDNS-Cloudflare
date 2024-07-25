@@ -14,7 +14,7 @@ tree = app_commands.CommandTree(client)
 
 con = sqlite3.connect("database.db")
 cur = con.cursor()
-cur.execute("""CREATE TABLE "data" (
+cur.execute("""CREATE TABLE IF NOT EXISTS "data" (
 	"DISCORD ID"	INTEGER,
 	"DOMAIN"	TEXT,
 	"DOMAIN TYPE"	TEXT,
