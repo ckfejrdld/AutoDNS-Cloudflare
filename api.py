@@ -99,7 +99,9 @@ def get_json(zone_id, email, api_key):
         "Content-Type": "application/json",
     }
 
-    response = requests.get(url, headers=headers, params={'page': 1, 'per_page': 200})
+    total_count = requests.get(url, headers=headers).json()['result_info']['total_count']
+
+    response = requests.get(url, headers=headers, params={'page': 1, 'per_page': total_count})
     if response.status_code == 200:
         return response.json(), 200
     else:

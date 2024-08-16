@@ -77,7 +77,7 @@ class a_modal(ui.Modal, title="정보를 입력해주세요."):
             
 class cname_modal(ui.Modal, title="정보를 입력해주세요."):
     answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
-    answer1 = ui.TextInput(label="도메인", style=discord.TextStyle.short, placeholder="ex) alcl.kr", required=True, max_length=16)
+    answer1 = ui.TextInput(label="도메인", style=discord.TextStyle.short, placeholder="ex) alcl.kr", required=True)
     async def on_submit(client, interaction: discord.Interaction):
         name = client.answer0.value
         target = client.answer1.value
