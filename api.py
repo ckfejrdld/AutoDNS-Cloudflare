@@ -122,7 +122,7 @@ def remove_record(id, zone_id, email, api_key):
         return "삭제 실패", 400
     
 def get_id(name, zone_id, email, api_key, domain):
-    print(get_json(zone_id, email, api_key))
+    # print(get_json(zone_id, email, api_key))
     try:
         data, status_code = get_json(zone_id, email, api_key)
         if status_code == 200:
