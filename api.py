@@ -90,7 +90,7 @@ def create_srv_record(name, target, port, zone_id, email, api_key):
     else:
         print(response.text)
     return response.status_code
-    
+
 def get_json(zone_id, email, api_key):
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records"
     headers = {
@@ -122,7 +122,6 @@ def remove_record(id, zone_id, email, api_key):
         return "삭제 실패", 400
     
 def get_id(name, zone_id, email, api_key, domain):
-    # print(get_json(zone_id, email, api_key))
     try:
         data, status_code = get_json(zone_id, email, api_key)
         if status_code == 200:
