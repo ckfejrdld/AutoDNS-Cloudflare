@@ -189,7 +189,7 @@ class removedns_modal(ui.Modal, title="정보를 입력해주세요."):
             subdomain = name.replace(f".{config.domain}", "")
         cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ? AND `DOMAIN` = ?", (interaction.user.id, f"{subdomain}.{config.domain}"))
         data = cur.fetchall()
-        if len(data) == 0:
+        if len(data) == 0 and interaction.user.id not in config.admin_id:
             await interaction.response.send_message("소지한 도메인과 일치하지 않습니다.", ephemeral=True)
             return
         url = f"http://{config.api_host}/autodns/{config.bot_key}/getid/{name}/{config.zone_id}/{config.email}/{config.api_key}/{config.domain}"
@@ -211,7 +211,6 @@ class removedns_modal(ui.Modal, title="정보를 입력해주세요."):
         elif response.status_code == 400:
             await interaction.response.send_message("삭제 실패했습니다.", ephemeral=True)
         else:
-            print(response.status_code)
             await interaction.response.send_message("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
         con.close()
         
