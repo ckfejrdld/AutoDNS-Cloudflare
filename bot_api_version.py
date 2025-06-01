@@ -30,9 +30,9 @@ class a_modal(ui.Modal, title="정보를 입력해주세요."):
     async def on_submit(client, interaction: discord.Interaction):
         name = client.answer0.value
         target = client.answer1.value
-        for char in string.punctuation:
-            if char != "-":
-                if char in name:
+        if not name.endswith(f".{config.domain}"):
+            for char in string.punctuation:
+                if char != "-" and char in name:
                     await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
                     return
 
