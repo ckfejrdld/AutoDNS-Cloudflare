@@ -28,192 +28,296 @@ class a_modal(ui.Modal, title="정보를 입력해주세요."):
     answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
     answer1 = ui.TextInput(label="IP", style=discord.TextStyle.short, placeholder="ex) 127.0.0.1", required=True, max_length=16)
     async def on_submit(client, interaction: discord.Interaction):
-        name = client.answer0.value
-        target = client.answer1.value
-        if not name.endswith(f".{config.domain}"):
-            for char in string.punctuation:
-                if char != "-" and char in name:
-                    await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
+        try:
+            await interaction.response.send_message("처리 중입니다...", ephemeral=True)
+            name = client.answer0.value
+            target = client.answer1.value
+            # 결과 메시지 변수
+            result_msg = ""
+            if not name.endswith(f".{config.domain}"):
+                for char in string.punctuation:
+                    if char != "-" and char in name:
+                        result_msg = "등록 불가능 도메인입니다."
+                        await interaction.edit_original_response(content=result_msg)
+                        return
+            if name not in config.blacklist:
+                con = sqlite3.connect('database.db')
+                cur = con.cursor()
+                cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
+                data = cur.fetchall()
+                subdomain = name
+                if f"{config.domain}" in name:
+                    subdomain = name.replace(f".{config.domain}", "")
+                if f"{target}" in config.blacklist_ip:
+                    result_msg = "등록 금지된 IP입니다."
+                    await interaction.edit_original_response(content=result_msg)
+                    con.close()
                     return
-
-        if name not in config.blacklist:
-            # DB 연결 및 도메인 등록 개수 확인.
-            con = sqlite3.connect('database.db')
-            cur = con.cursor()
-            cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
-            data = cur.fetchall()
-            subdomain = name
-            # 도메인까지 적혀 있을 경우, 서비스 도메인을 새로 정의.
-            if f"{config.domain}" in name:
-                subdomain = name.replace(f".{config.domain}", "")
-            # 블랙리스트 IP인지 확인.
-            if f"{target}" in config.blacklist_ip:
-                await interaction.response.send_message("등록 금지된 IP입니다.", ephemeral=True)
-                return
-            # 이미 등록된 레코드인지 확인.
-            cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
-            data2 = cur.fetchall()
-            if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
-                if len(data2) != 0:
-                    await interaction.response.send_message("이미 등록된 도메인입니다.", ephemeral=True)
-                    return
-                url = f"http://{config.api_host}/autodns/{config.bot_key}/a/{name}/{target}/{config.zone_id}/{config.email}/{config.api_key}"
-                response = requests.get(url)
-                result = response.status_code
-                if result == 200:
-                    # DB에 등록.
-                    cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "A", target, datetime.datetime.now()))
-                    con.commit()
-                    await interaction.response.send_message(f"등록 완료\n도메인:\n> {subdomain}.{config.domain}", ephemeral=True)
-                    print(f"{subdomain}.{config.domain} is Registered")
+                cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
+                data2 = cur.fetchall()
+                if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
+                    if len(data2) != 0:
+                        result_msg = "이미 등록된 도메인입니다."
+                        await interaction.edit_original_response(content=result_msg)
+                        con.close()
+                        return
+                    url = f"http://{config.api_host}/autodns/{config.bot_key}/a/{name}/{target}/{config.zone_id}/{config.email}/{config.api_key}"
+                    response = requests.get(url)
+                    result = response.status_code
+                    if result == 200:
+                        cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "A", target, datetime.datetime.now()))
+                        con.commit()
+                        result_msg = f"등록 완료\n도메인:\n> {subdomain}.{config.domain}"
+                        await interaction.edit_original_response(content=result_msg)
+                        print(f"{subdomain}.{config.domain} is Registered")
+                        con.close()
+                        return
+                    else:
+                        print(f"오류 로그: {result}")
+                        result_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+                        await interaction.edit_original_response(content=result_msg)
+                        con.close()
+                        return
                 else:
-                    print(f"오류 로그: {result}")
-                    await interaction.response.send_message("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                    result_msg = f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}"
+                    await interaction.edit_original_response(content=result_msg)
+                    con.close()
+                    return
             else:
-                await interaction.response.send_message(f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}", ephemeral=True)
-            con.close()
-        else:
-            await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
-            
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
+        except Exception as e:
+            error_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+            if not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await interaction.edit_original_response(content=error_msg)
+                except Exception:
+                    pass
+            print(f"Exception in a_modal.on_submit: {e}")
+
 class cname_modal(ui.Modal, title="정보를 입력해주세요."):
     answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
     answer1 = ui.TextInput(label="도메인", style=discord.TextStyle.short, placeholder="ex) alcl.kr", required=True)
     async def on_submit(client, interaction: discord.Interaction):
-        name = client.answer0.value
-        target = client.answer1.value
-        for char in string.punctuation:
-            if char != "-":
-                if char in name:
-                    await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
+        try:
+            await interaction.response.send_message("처리 중입니다...", ephemeral=True)
+            name = client.answer0.value
+            target = client.answer1.value
+            # 결과 메시지 변수
+            result_msg = ""
+            if not name.endswith(f".{config.domain}"):
+                for char in string.punctuation:
+                    if char != "-":
+                        if char in name:
+                            result_msg = "등록 불가능 도메인입니다."
+                            await interaction.edit_original_response(content=result_msg)
+                            return
+            if name not in config.blacklist:
+                con = sqlite3.connect('database.db')
+                cur = con.cursor()
+                cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
+                data = cur.fetchall()
+                subdomain = name
+                if f"{config.domain}" in name:
+                    subdomain = name.replace(f".{config.domain}", "")
+                if f"{target}" in config.blacklist_ip:
+                    result_msg = "등록 금지된 도메인입니다."
+                    await interaction.edit_original_response(content=result_msg)
+                    con.close()
                     return
-
-        if name not in config.blacklist:
-            # DB 연결 및 도메인 등록 개수 확인.
-            con = sqlite3.connect('database.db')
-            cur = con.cursor()
-            cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
-            data = cur.fetchall()
-            subdomain = name
-            # 도메인까지 적혀 있을 경우, 서비스 도메인을 새로 정의.
-            if f"{config.domain}" in name:
-                subdomain = name.replace(f".{config.domain}", "")
-            # 블랙리스트 IP인지 확인.
-            if f"{target}" in config.blacklist_ip:
-                await interaction.response.send_message("등록 금지된 도메인입니다.", ephemeral=True)
-                return
-            # 이미 등록된 레코드인지 확인.
-            cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
-            data2 = cur.fetchall()
-            if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
-                if len(data2) != 0:
-                    await interaction.response.send_message("이미 등록된 도메인입니다.", ephemeral=True)
-                    return
-                url = f"http://{config.api_host}/autodns/{config.bot_key}/cname/{name}/{target}/{config.zone_id}/{config.email}/{config.api_key}"
-                response = requests.get(url)
-                result = response.status_code
-                if result == 200:
-                    # DB에 등록.
-                    cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "CNAME", target, datetime.datetime.now()))
-                    con.commit()
-                    await interaction.response.send_message(f"등록 완료\n도메인:\n> {subdomain}.{config.domain}", ephemeral=True)
-                    print(f"{subdomain}.{config.domain} is Registered")
+                cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
+                data2 = cur.fetchall()
+                if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
+                    if len(data2) != 0:
+                        result_msg = "이미 등록된 도메인입니다."
+                        await interaction.edit_original_response(content=result_msg)
+                        con.close()
+                        return
+                    url = f"http://{config.api_host}/autodns/{config.bot_key}/cname/{name}/{target}/{config.zone_id}/{config.email}/{config.api_key}"
+                    response = requests.get(url)
+                    result = response.status_code
+                    if result == 200:
+                        cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "CNAME", target, datetime.datetime.now()))
+                        con.commit()
+                        result_msg = f"등록 완료\n도메인:\n> {subdomain}.{config.domain}"
+                        await interaction.edit_original_response(content=result_msg)
+                        print(f"{subdomain}.{config.domain} is Registered")
+                        con.close()
+                        return
+                    else:
+                        print(f"오류 로그: {result}")
+                        result_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+                        await interaction.edit_original_response(content=result_msg)
+                        con.close()
+                        return
                 else:
-                    print(f"오류 로그: {result}")
-                    await interaction.response.send_message("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                    result_msg = f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}"
+                    await interaction.edit_original_response(content=result_msg)
+                    con.close()
+                    return
             else:
-                await interaction.response.send_message(f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}", ephemeral=True)
-            con.close()
-        else:
-            await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
+        except Exception as e:
+            error_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+            if not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await interaction.edit_original_response(content=error_msg)
+                except Exception:
+                    pass
+            print(f"Exception in cname_modal.on_submit: {e}")
 
 class srv_modal(ui.Modal, title="정보를 입력해주세요."):
     answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
     answer1 = ui.TextInput(label="A 레코드:포트", style=discord.TextStyle.short, placeholder="ex) secure.alcl.cloud:25565", required=True)
     async def on_submit(client, interaction: discord.Interaction):
-        name = client.answer0.value
-        target_port = client.answer1.value
-        for char in string.punctuation:
-            if char != "-":
-                if char in name:
-                    await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
-                    return
-
-        if name not in config.blacklist:
-            # DB 연결 및 도메인 등록 개수 확인.
-            con = sqlite3.connect('database.db')
-            cur = con.cursor()
-            cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
-            data = cur.fetchall()
-            if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
-                target_port = target_port.strip()
-                target, port = target_port.split(':')
-                # 도메인까지 적혀 있을 경우, 서비스 도메인을 새로 정의.
-                subdomain = name
-                if f"{config.domain}" in name:
-                    subdomain = name.replace(f".{config.domain}", "")
-                cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
-                data2 = cur.fetchall()
-                if len(data2) != 0:
-                    await interaction.response.send_message("이미 등록된 도메인입니다.", ephemeral=True)
-                    return
-                url = f"http://{config.api_host}/autodns/{config.bot_key}/srv/{name}/{target}/{port}/{config.zone_id}/{config.email}/{config.api_key}"
-                response = requests.get(url)
-                result = response.status_code
-                if result == 200:
+        try:
+            await interaction.response.send_message("처리 중입니다...", ephemeral=True)
+            name = client.answer0.value
+            target_port = client.answer1.value
+            # 결과 메시지 변수
+            result_msg = ""
+            if not name.endswith(f".{config.domain}"):
+                for char in string.punctuation:
+                    if char != "-":
+                        if char in name:
+                            result_msg = "등록 불가능 도메인입니다."
+                            await interaction.edit_original_response(content=result_msg)
+                            return
+            if name not in config.blacklist:
+                con = sqlite3.connect('database.db')
+                cur = con.cursor()
+                cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ?", (interaction.user.id,))
+                data = cur.fetchall()
+                if len(data) < int(config.domain_limit) or interaction.user.id in config.admin_id:
+                    target_port = target_port.strip()
+                    target, port = target_port.split(':')
                     subdomain = name
-                    # 도메인까지 적혀 있을 경우, 서비스 도메인을 새로 정의.
                     if f"{config.domain}" in name:
                         subdomain = name.replace(f".{config.domain}", "")
-                    # DB에 등록.
-                    cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "SRV", target_port, datetime.datetime.now()))
-                    con.commit()
-                    await interaction.response.send_message(f"등록 완료\n도메인:\n> {subdomain}.{config.domain}", ephemeral=True)
-                    print(f"{subdomain}.{config.domain} is Registered")
+                    cur.execute("SELECT * FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
+                    data2 = cur.fetchall()
+                    if len(data2) != 0:
+                        await interaction.followup.send("이미 등록된 도메인입니다.", ephemeral=True)
+                        con.close()
+                        return
+                    url = f"http://{config.api_host}/autodns/{config.bot_key}/srv/{name}/{target}/{port}/{config.zone_id}/{config.email}/{config.api_key}"
+                    response = requests.get(url)
+                    result = response.status_code
+                    if result == 200:
+                        subdomain = name
+                        if f"{config.domain}" in name:
+                            subdomain = name.replace(f".{config.domain}", "")
+                        cur.execute("INSERT INTO data VALUES(?, ?, ?, ?, ?);", (interaction.user.id, f"{subdomain}.{config.domain}", "SRV", target_port, datetime.datetime.now()))
+                        con.commit()
+                        result_msg = f"등록 완료\n도메인:\n> {subdomain}.{config.domain}"
+                        await interaction.edit_original_response(content=result_msg)
+                        print(f"{subdomain}.{config.domain} is Registered")
+                        con.close()
+                        return
+                    else:
+                        print(f"오류 로그: {result}")
+                        result_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+                        await interaction.edit_original_response(content=result_msg)
+                        con.close()
+                        return
                 else:
-                    print(f"오류 로그: {result}")
-                    await interaction.response.send_message(f"오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                    result_msg = f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}"
+                    await interaction.edit_original_response(content=result_msg)
+                    con.close()
+                    return
             else:
-                await interaction.response.send_message(f"도메인 최대 등록 개수가 초과하였습니다.\n최대 개수: {config.domain_limit}", ephemeral=True)
-                con.close()
-        else:
-            await interaction.response.send_message("등록 불가능 도메인입니다.", ephemeral=True)
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
+        except Exception as e:
+            error_msg = "오류가 발생했습니다. 관리자에게 문의하세요."
+            if not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message(error_msg, ephemeral=True)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await interaction.edit_original_response(content=error_msg)
+                except Exception:
+                    pass
+            print(f"Exception in srv_modal.on_submit: {e}")
 
 class removedns_modal(ui.Modal, title="정보를 입력해주세요."):
     answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
     async def on_submit(client, interaction: discord.Interaction):
-        name = client.answer0.value
-        con = sqlite3.connect("database.db")
-        cur = con.cursor()
-        subdomain = name
-        if f"{config.domain}" in name:
-            subdomain = name.replace(f".{config.domain}", "")
-        cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ? AND `DOMAIN` = ?", (interaction.user.id, f"{subdomain}.{config.domain}"))
-        data = cur.fetchall()
-        if len(data) == 0 and interaction.user.id not in config.admin_id:
-            await interaction.response.send_message("소지한 도메인과 일치하지 않습니다.", ephemeral=True)
-            return
-        url = f"http://{config.api_host}/autodns/{config.bot_key}/getid/{name}/{config.zone_id}/{config.email}/{config.api_key}/{config.domain}"
-        response = requests.get(url)
-        if response.status_code == 200:
-            id = response.text
-        if id == "Error":
-            await interaction.response.send_message(f"오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
-        url = f"http://{config.api_host}/autodns/{config.bot_key}/removerecord/{id}/{config.zone_id}/{config.email}/{config.api_key}"
-        response = requests.get(url)
-        if response.status_code == 200:
+        try:
+            await interaction.response.send_message("처리 중입니다...", ephemeral=True)
+            name = client.answer0.value
+            con = sqlite3.connect("database.db")
+            cur = con.cursor()
             subdomain = name
             if f"{config.domain}" in name:
                 subdomain = name.replace(f".{config.domain}", "")
-            cur.execute("DELETE FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
-            con.commit()
-            await interaction.response.send_message(f"삭제 완료\n도메인\n> {subdomain}.{config.domain}", ephemeral=True)
-            print(f"{subdomain}.{config.domain} is Removed")
-        elif response.status_code == 400:
-            await interaction.response.send_message("삭제 실패했습니다.", ephemeral=True)
-        else:
-            await interaction.response.send_message("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
-        con.close()
-        
+            cur.execute("SELECT * FROM data WHERE `DISCORD ID` = ? AND `DOMAIN` = ?", (interaction.user.id, f"{subdomain}.{config.domain}"))
+            data = cur.fetchall()
+            if len(data) == 0 and interaction.user.id not in config.admin_id:
+                await interaction.followup.send("소지한 도메인과 일치하지 않습니다.", ephemeral=True)
+                con.close()
+                return
+            url = f"http://{config.api_host}/autodns/{config.bot_key}/getid/{name}/{config.zone_id}/{config.email}/{config.api_key}/{config.domain}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                id = response.text
+            else:
+                await interaction.followup.send("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                con.close()
+                return
+            if id == "Error":
+                await interaction.followup.send("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                con.close()
+                return
+            url = f"http://{config.api_host}/autodns/{config.bot_key}/removerecord/{id}/{config.zone_id}/{config.email}/{config.api_key}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                subdomain = name
+                if f"{config.domain}" in name:
+                    subdomain = name.replace(f".{config.domain}", "")
+                cur.execute("DELETE FROM data WHERE `DOMAIN` = ?", (f"{subdomain}.{config.domain}",))
+                con.commit()
+                await interaction.followup.send(f"삭제 완료\n도메인\n> {subdomain}.{config.domain}", ephemeral=True)
+                print(f"{subdomain}.{config.domain} is Removed")
+                con.close()
+                return
+            elif response.status_code == 400:
+                await interaction.followup.send("삭제 실패했습니다.", ephemeral=True)
+                con.close()
+                return
+            else:
+                await interaction.followup.send("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                con.close()
+                return
+        except Exception as e:
+            if not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message("오류가 발생했습니다. 관리자에게 문의하세요.", ephemeral=True)
+                except Exception:
+                    pass
+            else:
+                try:
+                    await interaction.edit_original_response(content="오류가 발생했습니다. 관리자에게 문의하세요.")
+                except Exception:
+                    pass
+            print(f"Exception in removedns_modal.on_submit: {e}")
+
 class button1(discord.ui.View):
     @discord.ui.button(label="A 레코드", style=discord.ButtonStyle.green)
     async def my_select(self, interaction: discord.Interaction, select: discord.ui.Select):
@@ -266,7 +370,7 @@ async def on_message(message):
         embed.add_field(name="개발환경", value="Python 3.11", inline=False)
         embed.add_field(name="운영환경", value="Python 3.11", inline=False)
         embed.add_field(name="연락 E-Mail", value="ckfejrdld@nperm.net", inline=False)
-        embed.set_footer(text="(C) 2023 ckfejrdld, with All rights reserved.")
+        embed.set_footer(text="(C) 2023-2025 ckfejrdld, with All rights reserved.")
         await message.channel.send(embed=embed)
 
     if message.content == f"{config.prefix}도움말":
