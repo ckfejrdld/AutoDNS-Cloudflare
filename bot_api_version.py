@@ -32,7 +32,11 @@ class a_modal(ui.Modal, title="정보를 입력해주세요."):
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
             name = client.answer0.value
             target = client.answer1.value
-            # 결과 메시지 변수
+            allowed = set(string.ascii_letters + string.digits + "-.")
+            if any(c not in allowed for c in name):
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
             result_msg = ""
             if not name.endswith(f".{config.domain}"):
                 for char in string.punctuation:
@@ -109,6 +113,11 @@ class cname_modal(ui.Modal, title="정보를 입력해주세요."):
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
             name = client.answer0.value
             target = client.answer1.value
+            allowed = set(string.ascii_letters + string.digits + "-.")
+            if any(c not in allowed for c in name):
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
             # 결과 메시지 변수
             result_msg = ""
             if not name.endswith(f".{config.domain}"):
@@ -187,6 +196,11 @@ class srv_modal(ui.Modal, title="정보를 입력해주세요."):
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
             name = client.answer0.value
             target_port = client.answer1.value
+            allowed = set(string.ascii_letters + string.digits + "-.")
+            if any(c not in allowed for c in name):
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
             # 결과 메시지 변수
             result_msg = ""
             if not name.endswith(f".{config.domain}"):
@@ -262,6 +276,11 @@ class removedns_modal(ui.Modal, title="정보를 입력해주세요."):
         try:
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
             name = client.answer0.value
+            allowed = set(string.ascii_letters + string.digits + "-.")
+            if any(c not in allowed for c in name):
+                result_msg = "등록 불가능 도메인입니다."
+                await interaction.edit_original_response(content=result_msg)
+                return
             con = sqlite3.connect("database.db")
             cur = con.cursor()
             subdomain = name
