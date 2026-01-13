@@ -25,12 +25,12 @@ con.commit()
 con.close()
 
 class a_modal(ui.Modal, title="정보를 입력해주세요."):
-    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
+    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc.alcl.kr", required=True)
     answer1 = ui.TextInput(label="IP", style=discord.TextStyle.short, placeholder="ex) 127.0.0.1", required=True, max_length=16)
     async def on_submit(client, interaction: discord.Interaction):
         try:
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
-            name = client.answer0.value
+            name = client.answer0.value.lower()
             target = client.answer1.value
             allowed = set(string.ascii_letters + string.digits + "-.")
             if any(c not in allowed for c in name):
@@ -106,12 +106,12 @@ class a_modal(ui.Modal, title="정보를 입력해주세요."):
             print(f"Exception in a_modal.on_submit: {e}")
 
 class cname_modal(ui.Modal, title="정보를 입력해주세요."):
-    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
+    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc.alcl.kr", required=True)
     answer1 = ui.TextInput(label="도메인", style=discord.TextStyle.short, placeholder="ex) alcl.kr", required=True)
     async def on_submit(client, interaction: discord.Interaction):
         try:
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
-            name = client.answer0.value
+            name = client.answer0.value.lower()
             target = client.answer1.value
             allowed = set(string.ascii_letters + string.digits + "-.")
             if any(c not in allowed for c in name):
@@ -189,12 +189,12 @@ class cname_modal(ui.Modal, title="정보를 입력해주세요."):
             print(f"Exception in cname_modal.on_submit: {e}")
 
 class srv_modal(ui.Modal, title="정보를 입력해주세요."):
-    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
+    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc.alcl.kr", required=True)
     answer1 = ui.TextInput(label="A 레코드:포트", style=discord.TextStyle.short, placeholder="ex) secure.alcl.cloud:25565", required=True)
     async def on_submit(client, interaction: discord.Interaction):
         try:
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
-            name = client.answer0.value
+            name = client.answer0.value.lower()
             target_port = client.answer1.value
             allowed = set(string.ascii_letters + string.digits + "-.")
             if any(c not in allowed for c in name):
@@ -271,11 +271,11 @@ class srv_modal(ui.Modal, title="정보를 입력해주세요."):
             print(f"Exception in srv_modal.on_submit: {e}")
 
 class removedns_modal(ui.Modal, title="정보를 입력해주세요."):
-    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc", required=True)
+    answer0 = ui.TextInput(label="원하는 도메인", style=discord.TextStyle.short, placeholder="ex) mc.alcl.kr", required=True)
     async def on_submit(client, interaction: discord.Interaction):
         try:
             await interaction.response.send_message("처리 중입니다...", ephemeral=True)
-            name = client.answer0.value
+            name = client.answer0.value.lower()
             allowed = set(string.ascii_letters + string.digits + "-.")
             if any(c not in allowed for c in name):
                 result_msg = "등록 불가능 도메인입니다."
